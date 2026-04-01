@@ -18,8 +18,15 @@ class AnthropicHttpClient {
     private val gson = Gson()
 
     fun chatCompletion(model: String, messages: List<LmChatMessage>, options: LmChatRequestOptions): String {
+        log.info("[LmAnthropic] Resolving API key")
         val apiKey = resolveApiKey()
-            ?: throw IllegalStateException("Anthropic API key not configured. Set ANTHROPIC_API_KEY environment variable.")
+        if (apiKey == null) {
+            log.warn("[LmAnthropic] API key not found in environment variable ANTHROPIC_API_KEY or system property anthropic.api.key")
+            throw IllegalStateException("Anthropic API key not configured. Set ANTHROPIC_API_KEY environment variable.")
+        }
+        log.info("[LmAnthropic] API key resolved successfully")
+
+        log.info("[LmAnthropic] Preparing request: model=$model, messageCount=${messages.size}, maxTokens=${options.maxTokens ?: 4096}, temperature=${options.temperature}")
 
         // Separate system message from conversation messages (Anthropic API uses a top-level system param)
         val systemMessage = messages.filter { it.role == LmChatRole.SYSTEM }.joinToString("\n") { it.content }
@@ -54,16 +61,34 @@ class AnthropicHttpClient {
         conn.readTimeout = 120000
         conn.doOutput = true
 
-        conn.outputStream.use { it.write(gson.toJson(requestMap).toByteArray(StandardCharsets.UTF_8)) }
+        val startTime = System.currentTimeMillis()
+        log.info("[LmAnthropic] Sending request to Anthropic API for model=$model")
 
-        val responseCode = conn.responseCode
-        if (responseCode != 200) {
-            val errorBody = try { conn.errorStream?.bufferedReader()?.readText() ?: "no error body" } catch (_: Exception) { "unreadable" }
-            throw RuntimeException("Anthropic API returned $responseCode: $errorBody")
+        try {
+            conn.outputStream.use { it.write(gson.toJson(requestMap).toByteArray(StandardCharsets.UTF_8)) }
+
+            val responseCode = conn.responseCode
+            val elapsed = System.currentTimeMillis() - startTime
+
+            if (responseCode != 200) {
+                val errorBody = try { conn.errorStream?.bufferedReader()?.readText() ?: "no error body" } catch (_: Exception) { "unreadable" }
+                log.warn("[LmAnthropic] API error: model=$model, status=$responseCode, elapsed=${elapsed}ms, body=$errorBody")
+                throw RuntimeException("Anthropic API returned $responseCode: $errorBody")
+            }
+
+            log.info("[LmAnthropic] Response received: model=$model, status=$responseCode, elapsed=${elapsed}ms")
+
+            val responseBody = conn.inputStream.bufferedReader().readText()
+            val content = extractContent(responseBody)
+            log.info("[LmAnthropic] Response parsed successfully: model=$model, contentLength=${content.length}")
+            return content
+        } catch (e: RuntimeException) {
+            throw e
+        } catch (e: Exception) {
+            val elapsed = System.currentTimeMillis() - startTime
+            log.warn("[LmAnthropic] Request failed: model=$model, elapsed=${elapsed}ms, error=${e.javaClass.simpleName}: ${e.message}", e)
+            throw RuntimeException("Anthropic API request failed for model $model: ${e.message}", e)
         }
-
-        val responseBody = conn.inputStream.bufferedReader().readText()
-        return extractContent(responseBody)
     }
 
     private fun extractContent(responseBody: String): String {

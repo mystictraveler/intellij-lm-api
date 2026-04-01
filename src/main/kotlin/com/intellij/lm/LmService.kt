@@ -41,21 +41,37 @@ class LmService {
      * @return List of matching models from all registered providers.
      */
     suspend fun selectChatModels(selector: LmModelSelector = LmModelSelector()): List<LmChatModel> {
+        log.info("[LmService] selectChatModels called with selector: family=${selector.family}, vendor=${selector.vendor}, id=${selector.id}")
+
+        val providers = LmProvider.EP_NAME.extensionList
+        log.info("[LmService] Found ${providers.size} registered provider(s)")
+
         val allModels = mutableListOf<LmChatModel>()
 
-        for (provider in LmProvider.EP_NAME.extensionList) {
+        for (provider in providers) {
             try {
-                allModels.addAll(provider.getAvailableModels())
+                val models = provider.getAvailableModels()
+                log.info("[LmService] Provider '${provider.id}' returned ${models.size} model(s)")
+                allModels.addAll(models)
             } catch (e: Exception) {
-                log.warn("Failed to get models from provider ${provider.id}: ${e.message}")
+                log.warn("[LmService] Failed to get models from provider '${provider.id}': ${e.message}", e)
             }
         }
 
-        return allModels.filter { model ->
+        val filtered = allModels.filter { model ->
             (selector.family == null || model.family == selector.family) &&
             (selector.vendor == null || model.vendor == selector.vendor) &&
             (selector.id == null || model.id == selector.id)
         }
+
+        val hasFilters = selector.family != null || selector.vendor != null || selector.id != null
+        if (hasFilters) {
+            log.info("[LmService] Applied filters: ${allModels.size} total model(s) -> ${filtered.size} matching model(s)")
+        } else {
+            log.info("[LmService] No filters applied, returning all ${filtered.size} model(s)")
+        }
+
+        return filtered
     }
 
     companion object {
