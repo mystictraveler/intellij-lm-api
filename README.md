@@ -198,6 +198,11 @@ src/main/resources/META-INF/
     plugin.xml                 # Plugin descriptor, service + extension point registration
 ```
 
+## Known Issues
+
+- **`DefaultLmChatResponse.text()` re-invokes producer** -- Each call to `text()` on a `DefaultLmChatResponse` re-executes the producer lambda, which can result in duplicate API calls. Consumers should call `text()` once and cache the result, or use `StreamingLmChatResponse` with `textStream.collect()`.
+- **Anthropic provider connection leak** -- `HttpURLConnection` is not explicitly disconnected in a `finally` block in `AnthropicHttpClient`, which may leak connections on errors in some JVM implementations.
+
 ## License
 
-See the repository for license details.
+This project is licensed under the [MIT License](LICENSE).
