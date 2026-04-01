@@ -11,6 +11,11 @@
         <applicationService serviceImplementation="com.intellij.lm.LmService"/>
     </extensions>
 
+    <!-- Built-in Anthropic (Claude) provider — activated when ANTHROPIC_API_KEY is set -->
+    <extensions defaultExtensionNs="com.intellij.lm">
+        <provider implementation="com.intellij.lm.anthropic.AnthropicLmProvider"/>
+    </extensions>
+
     <extensionPoints>
         <extensionPoint
                 name="provider"
