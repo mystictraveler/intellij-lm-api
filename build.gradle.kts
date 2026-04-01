@@ -19,7 +19,7 @@ dependencies {
         intellijIdeaCommunity("2024.3")
         instrumentationTools()
     }
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
     implementation("com.google.code.gson:gson:2.11.0")
 }
 
