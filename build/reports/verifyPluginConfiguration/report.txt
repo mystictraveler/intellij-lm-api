@@ -1,2 +1,0 @@
-- The Java configuration specifies sourceCompatibility='17' but IntelliJ Platform '2024.3' requires sourceCompatibility='21'.
-- The Kotlin Coroutines library must not be added explicitly to the project nor as a transitive dependency as it is already provided with the IntelliJ Platform, see: https://jb.gg/intellij-platform-kotlin-coroutines
